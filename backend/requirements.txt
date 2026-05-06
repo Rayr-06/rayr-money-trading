@@ -1,6 +1,15 @@
-﻿fastapi==0.115.0
+﻿# Your original system requirements
+fastapi==0.115.0
 uvicorn[standard]==0.27.1
 python-dotenv==1.0.1
+
+# Alpaca integration
 alpaca-trade-api==3.0.2
-pydantic==2.9.0
+
+# Data & Analysis
 pandas==2.2.0
+numpy==1.26.4
+yfinance==0.2.32
+
+# Technical indicators (if your system uses them)
+ta==0.11.0

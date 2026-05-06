@@ -1,0 +1,4 @@
+.encryption_key
+.credentials.json
+__pycache__/
+*.pyc
