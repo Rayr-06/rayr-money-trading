@@ -1,0 +1,36 @@
+﻿# 🎯 INTEGRATION GUIDE
+
+## To add this to your App.tsx:
+
+1. Import the component:
+   import EnhancedDashboard from './EnhancedDashboard';
+   import './EnhancedDashboard.css';
+
+2. Add it to your JSX:
+   <EnhancedDashboard />
+
+## Full Example App.tsx:
+
+import EnhancedDashboard from './EnhancedDashboard';
+import './EnhancedDashboard.css';
+
+function App() {
+  return (
+    <div className="App">
+      <h1>RAYR MONEY Trading System</h1>
+      <EnhancedDashboard />
+    </div>
+  );
+}
+
+export default App;
+
+## This will show:
+✅ Live Alpaca connection status
+✅ Real-time portfolio value
+✅ All 25+ monitored stocks
+✅ Current open positions
+✅ Recent order history
+✅ Auto-refreshing every 5-15 seconds
+
+Everything in ONE place - no external links needed!

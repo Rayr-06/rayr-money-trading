@@ -413,3 +413,111 @@ if __name__ == "__main__":
     logger.info("\nPress Ctrl+C to stop\n")
     
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# ============================================================================
+# ALPACA LIVE STATUS & TRADING ENDPOINTS
+# ============================================================================
+
+@app.get("/api/alpaca/status")
+async def get_alpaca_status():
+    """Get real-time Alpaca connection and account status"""
+    try:
+        account = api.get_account()
+        return {
+            "connected": True,
+            "account_status": account.status,
+            "portfolio_value": float(account.portfolio_value),
+            "cash": float(account.cash),
+            "buying_power": float(account.buying_power),
+            "equity": float(account.equity),
+            "paper_trading": True,
+            "day_trade_count": int(account.daytrade_count),
+            "pattern_day_trader": account.pattern_day_trader,
+            "last_equity": float(account.last_equity),
+            "last_updated": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "connected": False,
+            "error": str(e),
+            "last_updated": datetime.now().isoformat()
+        }
+
+@app.get("/api/alpaca/positions")
+async def get_alpaca_positions():
+    """Get current open positions"""
+    try:
+        positions = api.list_positions()
+        return {
+            "positions": [
+                {
+                    "symbol": p.symbol,
+                    "qty": float(p.qty),
+                    "side": p.side,
+                    "avg_entry_price": float(p.avg_entry_price),
+                    "current_price": float(p.current_price),
+                    "market_value": float(p.market_value),
+                    "cost_basis": float(p.cost_basis),
+                    "unrealized_pl": float(p.unrealized_pl),
+                    "unrealized_plpc": float(p.unrealized_plpc) * 100,
+                    "change_today": float(p.change_today) * 100
+                }
+                for p in positions
+            ],
+            "total_positions": len(positions),
+            "last_updated": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {"error": str(e), "positions": [], "total_positions": 0}
+
+@app.get("/api/alpaca/orders")
+async def get_alpaca_orders():
+    """Get recent orders"""
+    try:
+        orders = api.list_orders(status='all', limit=50)
+        return {
+            "orders": [
+                {
+                    "id": o.id,
+                    "symbol": o.symbol,
+                    "qty": float(o.qty),
+                    "side": o.side,
+                    "type": o.type,
+                    "status": o.status,
+                    "filled_qty": float(o.filled_qty) if o.filled_qty else 0,
+                    "filled_avg_price": float(o.filled_avg_price) if o.filled_avg_price else 0,
+                    "submitted_at": o.submitted_at.isoformat() if o.submitted_at else None,
+                    "filled_at": o.filled_at.isoformat() if o.filled_at else None
+                }
+                for o in orders
+            ],
+            "total_orders": len(orders)
+        }
+    except Exception as e:
+        return {"error": str(e), "orders": [], "total_orders": 0}
+
+@app.get("/api/stocks/list")
+async def get_stock_list():
+    """Get list of all monitored stocks"""
+    return {
+        "symbols": SYMBOLS,
+        "total": len(SYMBOLS),
+        "categories": {
+            "tech": ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA"],
+            "etfs": ["SPY", "QQQ", "IWM", "DIA"],
+            "finance": ["JPM", "BAC", "GS", "WFC"],
+            "popular": ["NFLX", "AMD", "INTC", "DIS", "PYPL", "COST", "PEP"]
+        }
+    }
+
+@app.post("/api/trading/start")
+async def start_trading():
+    """Start the trading bot"""
+    # Add your trading bot start logic here
+    return {"status": "started", "message": "Trading bot activated"}
+
+@app.post("/api/trading/stop")
+async def stop_trading():
+    """Stop the trading bot"""
+    # Add your trading bot stop logic here
+    return {"status": "stopped", "message": "Trading bot deactivated"}

@@ -1,0 +1,95 @@
+﻿.trading-dashboard {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.status-card, .stocks-section, .positions-section, .orders-section {
+  background: #1a1a2e;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.status-indicator {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+.status-indicator.connected {
+  color: #00ff88;
+}
+
+.status-indicator.disconnected {
+  color: #ff4444;
+}
+
+.account-info p {
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.stock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.stock-chip {
+  background: #2d2d44;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  color: #00d4ff;
+}
+
+.positions-table, .orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.positions-table th, .orders-table th {
+  background: #2d2d44;
+  padding: 12px;
+  text-align: left;
+}
+
+.positions-table td, .orders-table td {
+  padding: 10px;
+  border-bottom: 1px solid #2d2d44;
+}
+
+.profit {
+  color: #00ff88;
+  font-weight: bold;
+}
+
+.loss {
+  color: #ff4444;
+  font-weight: bold;
+}
+
+.buy {
+  color: #00ff88;
+}
+
+.sell {
+  color: #ff4444;
+}
+
+.status-filled {
+  color: #00ff88;
+}
+
+.status-pending {
+  color: #ffaa00;
+}
+
+.status-canceled {
+  color: #888;
+}
