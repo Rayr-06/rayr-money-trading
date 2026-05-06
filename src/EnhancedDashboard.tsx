@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
+import './EnhancedDashboard.css';
 
 export default function EnhancedDashboard() {
   const [alpacaStatus, setAlpacaStatus] = useState(null);
@@ -6,46 +7,14 @@ export default function EnhancedDashboard() {
   const [orders, setOrders] = useState([]);
   const [stocks, setStocks] = useState([]);
   const [quotes, setQuotes] = useState([]);
-  const [botStatus, setBotStatus] = useState({ running: false });
   const [selectedStock, setSelectedStock] = useState(null);
   const [orderQty, setOrderQty] = useState(1);
   const [orderSide, setOrderSide] = useState('buy');
-  const [loading, setLoading] = useState(true);
-  const [backendStatus, setBackendStatus] = useState('waking');
 
   const BACKEND_URL = 'https://rayr-money-trading.onrender.com';
 
-  // Wake up backend first
-  useEffect(() => {
-    const wakeBackend = async () => {
-      setBackendStatus('waking');
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
-        
-        const res = await fetch(`${BACKEND_URL}/health`, {
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
-        
-        if (res.ok) {
-          setBackendStatus('ready');
-          setLoading(false);
-        }
-      } catch (err) {
-        console.log('Backend waking up...', err.message);
-        setBackendStatus('waking');
-        // Retry after 5 seconds
-        setTimeout(wakeBackend, 5000);
-      }
-    };
-    wakeBackend();
-  }, []);
-
   // Fetch Alpaca status
   useEffect(() => {
-    if (backendStatus !== 'ready') return;
-    
     const fetchStatus = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/alpaca/status`);
@@ -56,14 +25,12 @@ export default function EnhancedDashboard() {
       }
     };
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
+    const interval = setInterval(fetchStatus, 10000);
     return () => clearInterval(interval);
-  }, [backendStatus]);
+  }, []);
 
   // Fetch positions
   useEffect(() => {
-    if (backendStatus !== 'ready') return;
-    
     const fetchPositions = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/alpaca/positions`);
@@ -76,12 +43,10 @@ export default function EnhancedDashboard() {
     fetchPositions();
     const interval = setInterval(fetchPositions, 10000);
     return () => clearInterval(interval);
-  }, [backendStatus]);
+  }, []);
 
   // Fetch orders
   useEffect(() => {
-    if (backendStatus !== 'ready') return;
-    
     const fetchOrders = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/alpaca/orders`);
@@ -94,12 +59,10 @@ export default function EnhancedDashboard() {
     fetchOrders();
     const interval = setInterval(fetchOrders, 15000);
     return () => clearInterval(interval);
-  }, [backendStatus]);
+  }, []);
 
   // Fetch stock list
   useEffect(() => {
-    if (backendStatus !== 'ready') return;
-    
     const fetchStocks = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/stocks/list`);
@@ -110,16 +73,15 @@ export default function EnhancedDashboard() {
       }
     };
     fetchStocks();
-  }, [backendStatus]);
+  }, []);
 
   // Fetch market quotes
   useEffect(() => {
-    if (backendStatus !== 'ready') return;
-    
     const fetchQuotes = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/market/quotes`);
         const data = await res.json();
+        console.log('Quotes received:', data);
         setQuotes(data.quotes || []);
       } catch (err) {
         console.error('Quotes fetch failed:', err);
@@ -128,25 +90,7 @@ export default function EnhancedDashboard() {
     fetchQuotes();
     const interval = setInterval(fetchQuotes, 30000);
     return () => clearInterval(interval);
-  }, [backendStatus]);
-
-  // Fetch bot status
-  useEffect(() => {
-    if (backendStatus !== 'ready') return;
-    
-    const fetchBotStatus = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/bot/status`);
-        const data = await res.json();
-        setBotStatus(data);
-      } catch (err) {
-        console.error('Bot status fetch failed:', err);
-      }
-    };
-    fetchBotStatus();
-    const interval = setInterval(fetchBotStatus, 5000);
-    return () => clearInterval(interval);
-  }, [backendStatus]);
+  }, []);
 
   const placeOrder = async () => {
     if (!selectedStock) {
@@ -172,35 +116,13 @@ export default function EnhancedDashboard() {
     }
   };
 
-  const toggleBot = async () => {
-    try {
-      const endpoint = botStatus.running ? '/api/bot/stop' : '/api/bot/start';
-      const res = await fetch(`${BACKEND_URL}${endpoint}`, { method: 'POST' });
-      const data = await res.json();
-      alert(data.message);
-    } catch (err) {
-      alert(`❌ Error: ${err.message}`);
-    }
-  };
-
   const getQuoteForSymbol = (symbol) => {
     return quotes.find(q => q.symbol === symbol);
   };
 
-  if (loading && backendStatus === 'waking') {
-    return (
-      <div className="loading-screen">
-        <div className="loading-spinner"></div>
-        <h2>🚀 Starting Trading System...</h2>
-        <p>Waking up backend server (this takes 30-60 seconds on first load)</p>
-        <p className="loading-tip">Render free tier spins down after 15min of inactivity</p>
-      </div>
-    );
-  }
-
   return (
     <div className="trading-dashboard">
-      {/* Alpaca Status */}
+      {/* Alpaca Status Card */}
       <div className="status-card">
         <h2>🔌 Alpaca Connection</h2>
         {alpacaStatus ? (
@@ -222,25 +144,7 @@ export default function EnhancedDashboard() {
         )}
       </div>
 
-      {/* Auto-Trading Bot */}
-      <div className="bot-control-card">
-        <h2>🤖 Auto-Trading Bot</h2>
-        <div className="bot-status">
-          <div className={`bot-indicator ${botStatus.running ? 'running' : 'stopped'}`}>
-            {botStatus.running ? '🟢 BOT ACTIVE' : '🔴 BOT STOPPED'}
-          </div>
-          <button onClick={toggleBot} className="bot-button">
-            {botStatus.running ? 'STOP BOT' : 'START BOT'}
-          </button>
-        </div>
-        <p className="bot-description">
-          {botStatus.running 
-            ? '🤖 Bot is actively monitoring and trading...' 
-            : '💤 Bot is stopped. Click START to activate auto-trading.'}
-        </p>
-      </div>
-
-      {/* Manual Trading */}
+      {/* Manual Trading Panel */}
       <div className="trading-panel">
         <h2>🎯 Manual Trade</h2>
         <div className="trade-form">
@@ -278,7 +182,7 @@ export default function EnhancedDashboard() {
         </div>
       </div>
 
-      {/* Stock Grid */}
+      {/* Stock Grid with Prices */}
       <div className="stocks-section">
         <h2>📊 Live Market Data ({quotes.length} stocks loaded)</h2>
         <div className="stock-grid-prices">
@@ -307,7 +211,7 @@ export default function EnhancedDashboard() {
         </div>
       </div>
 
-      {/* Positions */}
+      {/* Current Positions */}
       <div className="positions-section">
         <h2>💼 Open Positions ({positions.length})</h2>
         {positions.length > 0 ? (
@@ -344,7 +248,7 @@ export default function EnhancedDashboard() {
         )}
       </div>
 
-      {/* Orders */}
+      {/* Recent Orders */}
       <div className="orders-section">
         <h2>📝 Recent Orders (Last 10)</h2>
         {orders.slice(0, 10).length > 0 ? (
@@ -355,7 +259,7 @@ export default function EnhancedDashboard() {
                 <th>Side</th>
                 <th>Qty</th>
                 <th>Status</th>
-                <th>Price</th>
+                <th>Filled Price</th>
                 <th>Time</th>
               </tr>
             </thead>
