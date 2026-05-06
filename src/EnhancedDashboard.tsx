@@ -11,7 +11,7 @@ export default function TradingDashboard() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch('/api/alpaca/status');
+        const res = await fetch('https://rayr-money-trading.onrender.com/api/alpaca/status');
         const data = await res.json();
         setAlpacaStatus(data);
       } catch (err) {
@@ -27,7 +27,7 @@ export default function TradingDashboard() {
   useEffect(() => {
     const fetchPositions = async () => {
       try {
-        const res = await fetch('/api/alpaca/positions');
+        const res = await fetch('https://rayr-money-trading.onrender.com/api/alpaca/positions');
         const data = await res.json();
         setPositions(data.positions || []);
       } catch (err) {
@@ -43,7 +43,7 @@ export default function TradingDashboard() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch('/api/alpaca/orders');
+        const res = await fetch('https://rayr-money-trading.onrender.com/api/alpaca/orders');
         const data = await res.json();
         setOrders(data.orders || []);
       } catch (err) {
@@ -59,7 +59,7 @@ export default function TradingDashboard() {
   useEffect(() => {
     const fetchStocks = async () => {
       try {
-        const res = await fetch('/api/stocks/list');
+        const res = await fetch('https://rayr-money-trading.onrender.com/api/stocks/list');
         const data = await res.json();
         setStocks(data.symbols || []);
       } catch (err) {
