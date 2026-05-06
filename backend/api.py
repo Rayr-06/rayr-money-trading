@@ -1,4 +1,4 @@
-"""
+﻿"""
 RAYR MONEY - UNIFIED LIVE TRADING BACKEND
 Serves the web UI AND executes real Alpaca trades
 Run this once, everything works together
@@ -86,7 +86,7 @@ def get_account_info():
             return account
         return None
     except Exception as e:
-        add_log(f"❌ Error fetching account: {e}")
+        add_log(f"âŒ Error fetching account: {e}")
         return None
 
 def get_positions():
@@ -102,7 +102,7 @@ def get_positions():
             return positions
         return []
     except Exception as e:
-        add_log(f"❌ Error fetching positions: {e}")
+        add_log(f"âŒ Error fetching positions: {e}")
         return []
 
 def get_orders():
@@ -118,7 +118,7 @@ def get_orders():
             return orders
         return []
     except Exception as e:
-        add_log(f"❌ Error fetching orders: {e}")
+        add_log(f"âŒ Error fetching orders: {e}")
         return []
 
 def calculate_indicators(df):
@@ -212,23 +212,23 @@ def place_order(symbol, side, qty):
         
         if response.status_code in [200, 201]:
             order = response.json()
-            add_log(f"✅ ORDER PLACED: {side} {qty} {symbol} - Order ID: {order['id']}")
+            add_log(f"âœ… ORDER PLACED: {side} {qty} {symbol} - Order ID: {order['id']}")
             return order
         else:
-            add_log(f"❌ Order failed: {response.text}")
+            add_log(f"âŒ Order failed: {response.text}")
             return None
     except Exception as e:
-        add_log(f"❌ Order error: {e}")
+        add_log(f"âŒ Order error: {e}")
         return None
 
 def trading_loop():
     """Main trading loop - runs in background"""
     global trading_active
     
-    add_log("🚀 RAYR MONEY Trading Bot Started")
-    add_log(f"📊 Monitoring: {', '.join(TICKERS)}")
-    add_log(f"⚙️ Score Threshold: {SCORE_THRESHOLD}/100")
-    add_log(f"💰 Risk per Trade: {RISK_PCT*100}%")
+    add_log("ðŸš€ RAYR MONEY Trading Bot Started")
+    add_log(f"ðŸ“Š Monitoring: {', '.join(TICKERS)}")
+    add_log(f"âš™ï¸ Score Threshold: {SCORE_THRESHOLD}/100")
+    add_log(f"ðŸ’° Risk per Trade: {RISK_PCT*100}%")
     
     iteration = 0
     
@@ -239,17 +239,17 @@ def trading_loop():
         
         try:
             iteration += 1
-            add_log(f"🔄 Market Scan #{iteration}")
+            add_log(f"ðŸ”„ Market Scan #{iteration}")
             
             # Get account info
             account = get_account_info()
             if not account:
-                add_log("❌ Lost connection to Alpaca")
+                add_log("âŒ Lost connection to Alpaca")
                 time.sleep(60)
                 continue
             
             equity = float(account['equity'])
-            add_log(f"💵 Account Equity: ${equity:,.2f}")
+            add_log(f"ðŸ’µ Account Equity: ${equity:,.2f}")
             
             # Get current positions
             current_positions = get_positions()
@@ -258,13 +258,13 @@ def trading_loop():
             # Scan each ticker
             for ticker in TICKERS:
                 try:
-                    add_log(f"📊 Analyzing {ticker}...")
+                    add_log(f"ðŸ“Š Analyzing {ticker}...")
                     
                     # Download data
                     df = yf.download(ticker, period="3mo", interval="1d", progress=False)
                     
                     if df.empty:
-                        add_log(f"⚠️ No data for {ticker} (market may be closed)")
+                        add_log(f"âš ï¸ No data for {ticker} (market may be closed)")
                         continue
                     
                     # Standardize
@@ -284,7 +284,7 @@ def trading_loop():
                     
                     # Trading logic
                     if action == "BUY" and ticker not in position_symbols:
-                        add_log(f"🎯 HIGH QUALITY SETUP: {ticker}")
+                        add_log(f"ðŸŽ¯ HIGH QUALITY SETUP: {ticker}")
                         
                         # Position sizing
                         atr = df['atr'].iloc[-1]
@@ -298,21 +298,21 @@ def trading_loop():
                         if regime == "CHAOTIC" or score < 40:
                             pos = position_symbols[ticker]
                             qty = int(pos['qty'])
-                            add_log(f"⚠️ EXIT SIGNAL: {ticker} ({regime})")
+                            add_log(f"âš ï¸ EXIT SIGNAL: {ticker} ({regime})")
                             place_order(ticker, "SELL", qty)
                 
                 except Exception as e:
-                    add_log(f"❌ Error analyzing {ticker}: {str(e)}")
+                    add_log(f"âŒ Error analyzing {ticker}: {str(e)}")
             
             # Update positions and orders
             get_positions()
             get_orders()
             
-            add_log(f"💤 Sleeping 5 minutes...")
+            add_log(f"ðŸ’¤ Sleeping 5 minutes...")
             time.sleep(300)  # 5 minutes
             
         except Exception as e:
-            add_log(f"❌ Error in trading loop: {str(e)}")
+            add_log(f"âŒ Error in trading loop: {str(e)}")
             time.sleep(60)
 
 # API Endpoints
@@ -328,14 +328,14 @@ def start_trading():
         return {"success": False, "message": "Alpaca credentials not configured"}
     
     trading_active = True
-    add_log("🟢 TRADING ACTIVATED")
+    add_log("ðŸŸ¢ TRADING ACTIVATED")
     return {"success": True, "message": "Trading started"}
 
 @app.post("/stop_trading")
 def stop_trading():
     global trading_active
     trading_active = False
-    add_log("🔴 TRADING STOPPED")
+    add_log("ðŸ”´ TRADING STOPPED")
     return {"success": True, "message": "Trading stopped"}
 
 @app.get("/status")
@@ -383,28 +383,28 @@ def start_background_trading():
 
 if __name__ == "__main__":
     logger.info("=" * 70)
-    logger.info("🚀 RAYR MONEY - UNIFIED TRADING BACKEND")
+    logger.info("ðŸš€ RAYR MONEY - UNIFIED TRADING BACKEND")
     logger.info("=" * 70)
     
     # Check credentials
     if not ALPACA_API_KEY or not ALPACA_SECRET_KEY:
-        logger.warning("⚠️ Alpaca credentials not found in .env")
+        logger.warning("âš ï¸ Alpaca credentials not found in .env")
         logger.warning("   Add them to backend/.env to enable trading")
     else:
-        logger.info("✅ Alpaca credentials loaded")
+        logger.info("âœ… Alpaca credentials loaded")
         # Test connection
         account = get_account_info()
         if account:
-            logger.info(f"✅ Connected to Alpaca Paper Trading")
+            logger.info(f"âœ… Connected to Alpaca Paper Trading")
             logger.info(f"   Balance: ${float(account['equity']):,.2f}")
         else:
-            logger.warning("⚠️ Could not connect to Alpaca")
+            logger.warning("âš ï¸ Could not connect to Alpaca")
     
     # Start background trading thread
     start_background_trading()
     
-    logger.info("\n📡 Starting API server on http://localhost:8000")
-    logger.info("🌐 Open your web UI and click 'START TRADING' to begin")
+    logger.info("\nðŸ“¡ Starting API server on http://localhost:8000")
+    logger.info("ðŸŒ Open your web UI and click 'START TRADING' to begin")
     logger.info("\nAPI Endpoints:")
     logger.info("  POST /start_trading  - Start the trading bot")
     logger.info("  POST /stop_trading   - Stop the trading bot")
