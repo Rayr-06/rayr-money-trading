@@ -6,14 +6,14 @@ export default function EnhancedDashboard() {
   const [orders, setOrders] = useState([]);
   const [stocks, setStocks] = useState([]);
   const [quotes, setQuotes] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [botStatus, setBotStatus] = useState({ running: false });
   const [selectedStock, setSelectedStock] = useState(null);
   const [orderQty, setOrderQty] = useState(1);
   const [orderSide, setOrderSide] = useState('buy');
 
   const BACKEND_URL = 'https://rayr-money-trading.onrender.com';
 
-  // Fetch Alpaca status
+  // Fetch all data
   useEffect(() => {
     const fetchStatus = async () => {
       try {
@@ -29,7 +29,6 @@ export default function EnhancedDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch positions
   useEffect(() => {
     const fetchPositions = async () => {
       try {
@@ -45,7 +44,6 @@ export default function EnhancedDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch orders
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -61,7 +59,6 @@ export default function EnhancedDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch stock list
   useEffect(() => {
     const fetchStocks = async () => {
       try {
@@ -75,23 +72,37 @@ export default function EnhancedDashboard() {
     fetchStocks();
   }, []);
 
-  // Fetch market quotes
   useEffect(() => {
     const fetchQuotes = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/market/quotes`);
         const data = await res.json();
+        console.log('Quotes response:', data);
         setQuotes(data.quotes || []);
       } catch (err) {
         console.error('Quotes fetch failed:', err);
       }
     };
     fetchQuotes();
-    const interval = setInterval(fetchQuotes, 10000);
+    const interval = setInterval(fetchQuotes, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Place order
+  useEffect(() => {
+    const fetchBotStatus = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/bot/status`);
+        const data = await res.json();
+        setBotStatus(data);
+      } catch (err) {
+        console.error('Bot status fetch failed:', err);
+      }
+    };
+    fetchBotStatus();
+    const interval = setInterval(fetchBotStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const placeOrder = async () => {
     if (!selectedStock) {
       alert('Please select a stock first!');
@@ -99,7 +110,7 @@ export default function EnhancedDashboard() {
     }
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/trading/order?symbol=${selectedStock}&qty=${orderQty}&side=${orderSide}&order_type=market`, {
+      const res = await fetch(`${BACKEND_URL}/api/trading/order?symbol=${selectedStock}&qty=${orderQty}&side=${orderSide}`, {
         method: 'POST'
       });
       const data = await res.json();
@@ -116,13 +127,24 @@ export default function EnhancedDashboard() {
     }
   };
 
+  const toggleBot = async () => {
+    try {
+      const endpoint = botStatus.running ? '/api/bot/stop' : '/api/bot/start';
+      const res = await fetch(`${BACKEND_URL}${endpoint}`, { method: 'POST' });
+      const data = await res.json();
+      alert(data.message);
+    } catch (err) {
+      alert(`❌ Error: ${err.message}`);
+    }
+  };
+
   const getQuoteForSymbol = (symbol) => {
     return quotes.find(q => q.symbol === symbol);
   };
 
   return (
     <div className="trading-dashboard">
-      {/* Alpaca Status Card */}
+      {/* Alpaca Status */}
       <div className="status-card">
         <h2>🔌 Alpaca Connection</h2>
         {alpacaStatus ? (
@@ -136,7 +158,6 @@ export default function EnhancedDashboard() {
                 <p><strong>Portfolio Value:</strong> ${alpacaStatus.portfolio_value?.toFixed(2)}</p>
                 <p><strong>Cash:</strong> ${alpacaStatus.cash?.toFixed(2)}</p>
                 <p><strong>Buying Power:</strong> ${alpacaStatus.buying_power?.toFixed(2)}</p>
-                <p><strong>Equity:</strong> ${alpacaStatus.equity?.toFixed(2)}</p>
               </div>
             )}
           </>
@@ -145,9 +166,27 @@ export default function EnhancedDashboard() {
         )}
       </div>
 
-      {/* Trading Panel */}
+      {/* Auto-Trading Bot Control */}
+      <div className="bot-control-card">
+        <h2>🤖 Auto-Trading Bot</h2>
+        <div className="bot-status">
+          <div className={`bot-indicator ${botStatus.running ? 'running' : 'stopped'}`}>
+            {botStatus.running ? '🟢 BOT ACTIVE' : '🔴 BOT STOPPED'}
+          </div>
+          <button onClick={toggleBot} className="bot-button">
+            {botStatus.running ? 'STOP BOT' : 'START BOT'}
+          </button>
+        </div>
+        <p className="bot-description">
+          {botStatus.running 
+            ? '🤖 Bot is actively monitoring and trading...' 
+            : '💤 Bot is stopped. Click START to activate auto-trading.'}
+        </p>
+      </div>
+
+      {/* Manual Trading */}
       <div className="trading-panel">
-        <h2>🎯 Quick Trade</h2>
+        <h2>🎯 Manual Trade</h2>
         <div className="trade-form">
           <select 
             value={selectedStock || ''} 
@@ -166,7 +205,6 @@ export default function EnhancedDashboard() {
             onChange={(e) => setOrderQty(parseInt(e.target.value))}
             min="1"
             className="trade-input"
-            placeholder="Quantity"
           />
           
           <select 
@@ -184,9 +222,9 @@ export default function EnhancedDashboard() {
         </div>
       </div>
 
-      {/* Stock Grid with Prices */}
+      {/* Stock Grid */}
       <div className="stocks-section">
-        <h2>📊 Live Market Data ({quotes.length} stocks)</h2>
+        <h2>📊 Live Market Data ({quotes.length} stocks loaded)</h2>
         <div className="stock-grid-prices">
           {stocks.map(symbol => {
             const quote = getQuoteForSymbol(symbol);
@@ -213,7 +251,7 @@ export default function EnhancedDashboard() {
         </div>
       </div>
 
-      {/* Current Positions */}
+      {/* Positions */}
       <div className="positions-section">
         <h2>💼 Open Positions ({positions.length})</h2>
         {positions.length > 0 ? (
@@ -250,7 +288,7 @@ export default function EnhancedDashboard() {
         )}
       </div>
 
-      {/* Recent Orders */}
+      {/* Orders */}
       <div className="orders-section">
         <h2>📝 Recent Orders (Last 10)</h2>
         {orders.slice(0, 10).length > 0 ? (
@@ -261,7 +299,7 @@ export default function EnhancedDashboard() {
                 <th>Side</th>
                 <th>Qty</th>
                 <th>Status</th>
-                <th>Filled Price</th>
+                <th>Price</th>
                 <th>Time</th>
               </tr>
             </thead>

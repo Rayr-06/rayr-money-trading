@@ -263,3 +263,135 @@ async def place_order(
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+@app.get("/api/market/quotes")
+async def get_market_quotes():
+    """Get current market quotes - simplified version"""
+    if not api:
+        return {"error": "Alpaca API not initialized", "quotes": []}
+    
+    try:
+        quotes_data = []
+        # Get quotes in smaller batches to avoid rate limits
+        for symbol in SYMBOLS[:10]:  # First 10 stocks only to test
+            try:
+                bars = api.get_bars(symbol, "1Day", limit=1).df
+                if not bars.empty:
+                    latest = bars.iloc[-1]
+                    quotes_data.append({
+                        "symbol": symbol,
+                        "price": float(latest['close']),
+                        "bid": float(latest['close']) * 0.999,  # Approximate
+                        "ask": float(latest['close']) * 1.001,  # Approximate
+                        "timestamp": datetime.now().isoformat()
+                    })
+            except Exception as e:
+                print(f"Error fetching {symbol}: {e}")
+                continue
+        
+        return {
+            "quotes": quotes_data,
+            "total": len(quotes_data),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {"error": str(e), "quotes": []}
+
+@app.post("/api/trading/order")
+async def place_order(symbol: str, qty: int, side: str, order_type: str = "market"):
+    """Place a trading order"""
+    if not api:
+        return {"error": "Alpaca API not initialized", "success": False}
+    
+    try:
+        order = api.submit_order(
+            symbol=symbol,
+            qty=qty,
+            side=side,
+            type=order_type,
+            time_in_force='day'
+        )
+        
+        return {
+            "success": True,
+            "order_id": order.id,
+            "symbol": order.symbol,
+            "qty": float(order.qty),
+            "side": order.side,
+            "status": order.status
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# ============================================================================
+# AUTO-TRADING BOT
+# ============================================================================
+
+bot_running = False
+bot_thread = None
+
+def trading_bot():
+    """Simple auto-trading bot"""
+    global bot_running
+    import time
+    
+    print("🤖 Trading bot started!")
+    
+    while bot_running:
+        try:
+            # Simple strategy: Buy AAPL if we have cash
+            account = api.get_account()
+            cash = float(account.cash)
+            
+            if cash > 1000:  # If we have more than $1000
+                # Check current AAPL price
+                bars = api.get_bars("AAPL", "1Day", limit=1).df
+                if not bars.empty:
+                    price = float(bars.iloc[-1]['close'])
+                    qty = int(cash / price / 10)  # Use 10% of cash
+                    
+                    if qty > 0:
+                        print(f"🤖 Bot placing order: BUY {qty} AAPL at ~${price}")
+                        api.submit_order(
+                            symbol="AAPL",
+                            qty=qty,
+                            side="buy",
+                            type="market",
+                            time_in_force='day'
+                        )
+            
+            time.sleep(60)  # Wait 1 minute between trades
+            
+        except Exception as e:
+            print(f"🤖 Bot error: {e}")
+            time.sleep(60)
+
+@app.post("/api/bot/start")
+async def start_bot():
+    """Start the auto-trading bot"""
+    global bot_running, bot_thread
+    
+    if bot_running:
+        return {"status": "already_running", "message": "Bot is already running"}
+    
+    bot_running = True
+    
+    import threading
+    bot_thread = threading.Thread(target=trading_bot, daemon=True)
+    bot_thread.start()
+    
+    return {"status": "started", "message": "Trading bot started successfully"}
+
+@app.post("/api/bot/stop")
+async def stop_bot():
+    """Stop the auto-trading bot"""
+    global bot_running
+    bot_running = False
+    return {"status": "stopped", "message": "Trading bot stopped"}
+
+@app.get("/api/bot/status")
+async def bot_status():
+    """Get bot status"""
+    return {
+        "running": bot_running,
+        "status": "active" if bot_running else "stopped"
+    }

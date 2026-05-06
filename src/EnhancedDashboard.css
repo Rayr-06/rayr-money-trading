@@ -166,3 +166,60 @@
 .status-canceled, .status-rejected {
   color: #888;
 }
+.bot-control-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+  border: 2px solid #00ff88;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 12px rgba(0, 255, 136, 0.2);
+}
+
+.bot-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 15px 0;
+}
+
+.bot-indicator {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.bot-indicator.running {
+  color: #00ff88;
+  animation: pulse 2s infinite;
+}
+
+.bot-indicator.stopped {
+  color: #ff4444;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.bot-button {
+  padding: 12px 32px;
+  font-size: 18px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+  color: #1a1a2e;
+}
+
+.bot-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 255, 136, 0.4);
+}
+
+.bot-description {
+  margin-top: 10px;
+  color: #888;
+  font-style: italic;
+}
