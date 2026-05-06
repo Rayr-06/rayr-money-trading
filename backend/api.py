@@ -33,7 +33,7 @@ api = None
 try:
     if ALPACA_API_KEY and ALPACA_SECRET_KEY:
         api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_BASE_URL, api_version='v2')
-        print("✅ Alpaca API initialized")
+        print("✅ Alpaca API initialized successfully")
 except Exception as e:
     print(f"❌ Alpaca init failed: {e}")
 
@@ -43,114 +43,145 @@ except Exception as e:
 
 SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "SPY", "QQQ"]
 
+TRADING_CONFIG = {
+    "max_positions": 3,
+    "position_size_pct": 0.15,  # 15% per position
+    "min_score": 70,
+    "stop_loss_pct": 0.05,  # 5%
+    "take_profit_pct": 0.10,  # 10%
+    "check_interval": 60,  # seconds
+}
+
 bot_running = False
 bot_thread = None
 bot_logs = []
 trade_history = []
 
 def add_log(message):
-    """Add log entry with timestamp"""
+    """Add timestamped log entry"""
     timestamp = datetime.now().strftime("%H:%M:%S")
-    log_entry = f"[{timestamp}] {message}"
-    bot_logs.append(log_entry)
-    if len(bot_logs) > 100:
+    entry = f"[{timestamp}] {message}"
+    bot_logs.append(entry)
+    if len(bot_logs) > 200:
         bot_logs.pop(0)
-    print(log_entry)
+    print(entry)
+    return entry
 
 # ============================================================================
-# TRADING BOT
+# TRADING ALGORITHM
 # ============================================================================
 
 def calculate_score(symbol, bars):
-    """Simple momentum score"""
+    """Multi-factor momentum score (0-100)"""
     try:
         if len(bars) < 20:
             return 0
         
         close = bars['close'].values
+        volume = bars['volume'].values
+        score = 0
+        
+        # Factor 1: Trend (50 points)
+        sma_5 = close[-5:].mean()
         sma_10 = close[-10:].mean()
         sma_20 = close[-20:].mean()
         current = close[-1]
         
-        score = 0
+        if current > sma_5 > sma_10 > sma_20:
+            score += 50  # Strong uptrend
+        elif current > sma_10 > sma_20:
+            score += 30  # Moderate uptrend
+        elif current > sma_20:
+            score += 15  # Weak uptrend
         
-        # Uptrend
-        if current > sma_10 > sma_20:
-            score += 50
-        
-        # Recent momentum
-        recent_change = (current - close[-5]) / close[-5]
-        if recent_change > 0.02:
+        # Factor 2: Momentum (30 points)
+        week_change = (current - close[-5]) / close[-5]
+        if week_change > 0.03:
             score += 30
-        elif recent_change > 0:
+        elif week_change > 0.01:
             score += 15
         
-        # Volume
-        volume = bars['volume'].values
-        if volume[-1] > volume[-5:].mean():
+        # Factor 3: Volume (20 points)
+        avg_volume = volume[-10:].mean()
+        if volume[-1] > avg_volume * 1.2:
             score += 20
+        elif volume[-1] > avg_volume:
+            score += 10
         
         return min(score, 100)
-    except:
+    except Exception as e:
+        add_log(f"   ⚠️ Score error for {symbol}: {str(e)[:30]}")
         return 0
 
 def trading_bot():
-    """Main bot loop with detailed logging"""
+    """Main trading bot loop"""
     global bot_running
     
-    add_log("🤖 Trading bot STARTED!")
-    add_log(f"📊 Monitoring {len(SYMBOLS)} stocks: {', '.join(SYMBOLS)}")
-    add_log("⏰ Checking market every 60 seconds...")
+    add_log("=" * 60)
+    add_log("🤖 RAYR MONEY TRADING BOT ACTIVATED")
+    add_log("=" * 60)
+    add_log(f"📊 Monitoring: {', '.join(SYMBOLS)}")
+    add_log(f"⚙️ Strategy: Momentum-based multi-factor scoring")
+    add_log(f"🎯 Min Score: {TRADING_CONFIG['min_score']}/100")
+    add_log(f"💼 Max Positions: {TRADING_CONFIG['max_positions']}")
+    add_log(f"🛡️ Stop Loss: {TRADING_CONFIG['stop_loss_pct']*100}%")
+    add_log(f"💰 Take Profit: {TRADING_CONFIG['take_profit_pct']*100}%")
+    add_log(f"⏰ Check Interval: {TRADING_CONFIG['check_interval']}s")
+    add_log("=" * 60)
     
     cycle = 0
     
     while bot_running:
         try:
             cycle += 1
-            add_log(f"\n{'='*50}")
-            add_log(f"🔄 Cycle #{cycle}")
-            add_log(f"{'='*50}")
+            add_log(f"\n🔄 CYCLE #{cycle} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            add_log("-" * 60)
             
-            # Get account info
+            # Check market hours
+            clock = api.get_clock()
+            if not clock.is_open:
+                add_log("🌙 Market is CLOSED. Waiting for next open...")
+                time.sleep(300)  # Wait 5 minutes during market close
+                continue
+            
+            # Get account
             account = api.get_account()
             cash = float(account.cash)
             portfolio_value = float(account.portfolio_value)
             
             add_log(f"💰 Portfolio: ${portfolio_value:,.2f} | Cash: ${cash:,.2f}")
             
-            # Check positions
+            # Get positions
             positions = api.list_positions()
-            add_log(f"📊 Current positions: {len(positions)}")
+            add_log(f"📊 Positions: {len(positions)}/{TRADING_CONFIG['max_positions']}")
             
-            if len(positions) >= 3:
-                add_log("⚠️  At max positions (3/3), managing existing only")
+            # Manage existing positions
+            for pos in positions:
+                pl_pct = float(pos.unrealized_plpc)
+                add_log(f"   • {pos.symbol}: {float(pos.qty)} @ {pl_pct*100:+.2f}%")
                 
-                # Manage positions
-                for pos in positions:
-                    pl_pct = float(pos.unrealized_plpc) * 100
-                    add_log(f"   • {pos.symbol}: {float(pos.qty)} shares @ {pl_pct:+.2f}%")
-                    
-                    if pl_pct <= -5:
-                        add_log(f"🛑 STOP LOSS triggered for {pos.symbol}")
-                        api.close_position(pos.symbol)
-                        trade_history.append({
-                            'time': datetime.now().isoformat(),
-                            'action': 'SELL (Stop Loss)',
-                            'symbol': pos.symbol,
-                            'reason': f'Loss: {pl_pct:.2f}%'
-                        })
-                    elif pl_pct >= 10:
-                        add_log(f"💰 TAKE PROFIT triggered for {pos.symbol}")
-                        api.close_position(pos.symbol)
-                        trade_history.append({
-                            'time': datetime.now().isoformat(),
-                            'action': 'SELL (Take Profit)',
-                            'symbol': pos.symbol,
-                            'reason': f'Profit: {pl_pct:.2f}%'
-                        })
-            else:
-                # Look for new trades
-                add_log(f"🔍 Scanning {len(SYMBOLS)} stocks for signals...")
+                if pl_pct <= -TRADING_CONFIG['stop_loss_pct']:
+                    add_log(f"🛑 STOP LOSS: Closing {pos.symbol}")
+                    api.close_position(pos.symbol)
+                    trade_history.append({
+                        'time': datetime.now().isoformat(),
+                        'action': 'SELL',
+                        'symbol': pos.symbol,
+                        'reason': f'Stop Loss ({pl_pct*100:.2f}%)'
+                    })
+                elif pl_pct >= TRADING_CONFIG['take_profit_pct']:
+                    add_log(f"💰 TAKE PROFIT: Closing {pos.symbol}")
+                    api.close_position(pos.symbol)
+                    trade_history.append({
+                        'time': datetime.now().isoformat(),
+                        'action': 'SELL',
+                        'symbol': pos.symbol,
+                        'reason': f'Take Profit ({pl_pct*100:.2f}%)'
+                    })
+            
+            # Look for new signals if below max
+            if len(positions) < TRADING_CONFIG['max_positions']:
+                add_log(f"🔍 Scanning for BUY signals...")
                 
                 current_symbols = [p.symbol for p in positions]
                 
@@ -159,7 +190,6 @@ def trading_bot():
                         continue
                     
                     try:
-                        # Get data
                         bars = api.get_bars(symbol, '1Day', limit=50).df
                         if bars.empty:
                             continue
@@ -167,17 +197,15 @@ def trading_bot():
                         score = calculate_score(symbol, bars)
                         price = float(bars.iloc[-1]['close'])
                         
-                        add_log(f"   {symbol}: Score={score}/100, Price=${price:.2f}")
+                        add_log(f"   {symbol}: Score={score}/100, ${price:.2f}")
                         
-                        if score >= 70:
-                            # Calculate qty
-                            position_value = portfolio_value * 0.15  # 15% per position
+                        if score >= TRADING_CONFIG['min_score']:
+                            position_value = portfolio_value * TRADING_CONFIG['position_size_pct']
                             qty = int(position_value / price)
                             
                             if qty > 0 and (qty * price) <= cash:
-                                add_log(f"🎯 SIGNAL: BUY {qty} {symbol} @ ${price:.2f} (Score: {score})")
+                                add_log(f"🎯 BUY SIGNAL: {qty} {symbol} @ ${price:.2f}")
                                 
-                                # Place order
                                 order = api.submit_order(
                                     symbol=symbol,
                                     qty=qty,
@@ -194,16 +222,19 @@ def trading_bot():
                                     'symbol': symbol,
                                     'qty': qty,
                                     'price': price,
-                                    'score': score
+                                    'score': score,
+                                    'order_id': order.id
                                 })
                                 
                                 time.sleep(2)
                     
                     except Exception as e:
-                        add_log(f"   ⚠️  Error checking {symbol}: {str(e)[:50]}")
+                        add_log(f"   ⚠️ {symbol} error: {str(e)[:40]}")
+            else:
+                add_log("⚠️ At max positions, monitoring only")
             
-            add_log(f"⏰ Next check in 60 seconds...")
-            time.sleep(60)
+            add_log(f"⏰ Next check in {TRADING_CONFIG['check_interval']}s")
+            time.sleep(TRADING_CONFIG['check_interval'])
             
         except Exception as e:
             add_log(f"❌ Bot error: {e}")
@@ -218,15 +249,30 @@ def trading_bot():
 @app.get("/")
 async def root():
     return {
-        "app": "RAYR MONEY",
+        "app": "RAYR MONEY Trading System",
         "version": "2.0",
         "status": "running",
-        "bot_running": bot_running
+        "alpaca_connected": api is not None,
+        "bot_running": bot_running,
+        "timestamp": datetime.now().isoformat()
     }
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    market_status = "unknown"
+    try:
+        if api:
+            clock = api.get_clock()
+            market_status = "open" if clock.is_open else "closed"
+    except:
+        pass
+    
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "alpaca_api": "connected" if api else "disconnected",
+        "market_status": market_status
+    }
 
 @app.get("/api/alpaca/status")
 async def alpaca_status():
@@ -234,13 +280,15 @@ async def alpaca_status():
         return {"connected": False}
     try:
         account = api.get_account()
+        clock = api.get_clock()
         return {
             "connected": True,
             "portfolio_value": float(account.portfolio_value),
             "cash": float(account.cash),
             "buying_power": float(account.buying_power),
             "equity": float(account.equity),
-            "paper_trading": True
+            "paper_trading": True,
+            "market_open": clock.is_open
         }
     except:
         return {"connected": False}
@@ -295,7 +343,6 @@ async def get_stocks():
 
 @app.get("/api/market/quotes")
 async def get_quotes():
-    """Get market quotes"""
     if not api:
         return {"quotes": [], "total": 0}
     
@@ -321,13 +368,14 @@ async def bot_status():
     return {
         "running": bot_running,
         "status": "active" if bot_running else "stopped",
-        "logs": bot_logs[-20:],  # Last 20 log entries
-        "trades": len(trade_history)
+        "config": TRADING_CONFIG,
+        "logs_count": len(bot_logs),
+        "trades_count": len(trade_history),
+        "recent_logs": bot_logs[-10:] if bot_logs else []
     }
 
 @app.get("/api/bot/logs")
 async def get_logs():
-    """Get full bot activity logs"""
     return {
         "logs": bot_logs,
         "total": len(bot_logs)
@@ -335,7 +383,6 @@ async def get_logs():
 
 @app.get("/api/bot/trades")
 async def get_trades():
-    """Get bot trade history"""
     return {
         "trades": trade_history,
         "total": len(trade_history)
@@ -346,7 +393,7 @@ async def start_bot():
     global bot_running, bot_thread
     
     if bot_running:
-        return {"status": "already_running"}
+        return {"status": "already_running", "message": "Bot is already active"}
     
     bot_running = True
     bot_thread = threading.Thread(target=trading_bot, daemon=True)
@@ -354,14 +401,15 @@ async def start_bot():
     
     return {
         "status": "started",
-        "message": "🤖 Bot activated! Check /api/bot/logs for activity."
+        "message": "🤖 Trading bot activated! Monitor /api/bot/logs for activity."
     }
 
 @app.post("/api/bot/stop")
 async def stop_bot():
     global bot_running
     bot_running = False
-    return {"status": "stopped"}
+    add_log("🛑 Bot stop requested by user")
+    return {"status": "stopped", "message": "Bot deactivated"}
 
 @app.post("/api/trading/order")
 async def place_order(symbol: str, qty: int, side: str):
@@ -375,6 +423,6 @@ async def place_order(symbol: str, qty: int, side: str):
             type="market",
             time_in_force='day'
         )
-        return {"success": True, "order_id": order.id}
+        return {"success": True, "order_id": order.id, "status": order.status}
     except Exception as e:
         return {"success": False, "error": str(e)}
