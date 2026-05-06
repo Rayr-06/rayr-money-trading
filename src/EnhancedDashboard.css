@@ -4,7 +4,7 @@
   margin: 0 auto;
 }
 
-.status-card, .stocks-section, .positions-section, .orders-section {
+.status-card, .trading-panel, .stocks-section, .positions-section, .orders-section {
   background: #1a1a2e;
   border-radius: 12px;
   padding: 20px;
@@ -31,20 +31,91 @@
   font-size: 16px;
 }
 
-.stock-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+.trading-panel {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+}
+
+.trade-form {
+  display: flex;
   gap: 10px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.trade-select, .trade-input {
+  flex: 1;
+  min-width: 150px;
+  padding: 12px;
+  background: #2d2d44;
+  border: 2px solid #3d3d54;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+}
+
+.trade-button {
+  flex: 1;
+  min-width: 200px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.trade-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 212, 255, 0.4);
+}
+
+.stock-grid-prices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
   margin-top: 15px;
 }
 
-.stock-chip {
+.stock-card {
   background: #2d2d44;
-  padding: 10px;
+  padding: 15px;
   border-radius: 8px;
   text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid transparent;
+}
+
+.stock-card:hover {
+  border-color: #00d4ff;
+  transform: translateY(-4px);
+}
+
+.stock-card.selected {
+  border-color: #00ff88;
+  background: #3d3d54;
+}
+
+.stock-symbol {
   font-weight: bold;
+  font-size: 18px;
   color: #00d4ff;
+  margin-bottom: 8px;
+}
+
+.stock-price {
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  margin: 8px 0;
+}
+
+.stock-spread {
+  font-size: 12px;
+  color: #888;
 }
 
 .positions-table, .orders-table {
@@ -76,20 +147,22 @@
 
 .buy {
   color: #00ff88;
+  font-weight: bold;
 }
 
 .sell {
   color: #ff4444;
+  font-weight: bold;
 }
 
 .status-filled {
   color: #00ff88;
 }
 
-.status-pending {
+.status-pending_new, .status-accepted {
   color: #ffaa00;
 }
 
-.status-canceled {
+.status-canceled, .status-rejected {
   color: #888;
 }

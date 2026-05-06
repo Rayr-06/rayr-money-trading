@@ -1,17 +1,23 @@
 ﻿import { useState, useEffect } from 'react';
 
-export default function TradingDashboard() {
+export default function EnhancedDashboard() {
   const [alpacaStatus, setAlpacaStatus] = useState(null);
   const [positions, setPositions] = useState([]);
   const [orders, setOrders] = useState([]);
   const [stocks, setStocks] = useState([]);
+  const [quotes, setQuotes] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [orderQty, setOrderQty] = useState(1);
+  const [orderSide, setOrderSide] = useState('buy');
+
+  const BACKEND_URL = 'https://rayr-money-trading.onrender.com';
 
   // Fetch Alpaca status
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch('https://rayr-money-trading.onrender.com/api/alpaca/status');
+        const res = await fetch(`${BACKEND_URL}/api/alpaca/status`);
         const data = await res.json();
         setAlpacaStatus(data);
       } catch (err) {
@@ -19,7 +25,7 @@ export default function TradingDashboard() {
       }
     };
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000); // Update every 5s
+    const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -27,7 +33,7 @@ export default function TradingDashboard() {
   useEffect(() => {
     const fetchPositions = async () => {
       try {
-        const res = await fetch('https://rayr-money-trading.onrender.com/api/alpaca/positions');
+        const res = await fetch(`${BACKEND_URL}/api/alpaca/positions`);
         const data = await res.json();
         setPositions(data.positions || []);
       } catch (err) {
@@ -35,7 +41,7 @@ export default function TradingDashboard() {
       }
     };
     fetchPositions();
-    const interval = setInterval(fetchPositions, 10000); // Update every 10s
+    const interval = setInterval(fetchPositions, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -43,7 +49,7 @@ export default function TradingDashboard() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch('https://rayr-money-trading.onrender.com/api/alpaca/orders');
+        const res = await fetch(`${BACKEND_URL}/api/alpaca/orders`);
         const data = await res.json();
         setOrders(data.orders || []);
       } catch (err) {
@@ -59,7 +65,7 @@ export default function TradingDashboard() {
   useEffect(() => {
     const fetchStocks = async () => {
       try {
-        const res = await fetch('https://rayr-money-trading.onrender.com/api/stocks/list');
+        const res = await fetch(`${BACKEND_URL}/api/stocks/list`);
         const data = await res.json();
         setStocks(data.symbols || []);
       } catch (err) {
@@ -68,6 +74,51 @@ export default function TradingDashboard() {
     };
     fetchStocks();
   }, []);
+
+  // Fetch market quotes
+  useEffect(() => {
+    const fetchQuotes = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/market/quotes`);
+        const data = await res.json();
+        setQuotes(data.quotes || []);
+      } catch (err) {
+        console.error('Quotes fetch failed:', err);
+      }
+    };
+    fetchQuotes();
+    const interval = setInterval(fetchQuotes, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Place order
+  const placeOrder = async () => {
+    if (!selectedStock) {
+      alert('Please select a stock first!');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/trading/order?symbol=${selectedStock}&qty=${orderQty}&side=${orderSide}&order_type=market`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        alert(`✅ Order placed: ${orderSide.toUpperCase()} ${orderQty} ${selectedStock}`);
+        setSelectedStock(null);
+        setOrderQty(1);
+      } else {
+        alert(`❌ Order failed: ${data.error}`);
+      }
+    } catch (err) {
+      alert(`❌ Error: ${err.message}`);
+    }
+  };
+
+  const getQuoteForSymbol = (symbol) => {
+    return quotes.find(q => q.symbol === symbol);
+  };
 
   return (
     <div className="trading-dashboard">
@@ -94,19 +145,71 @@ export default function TradingDashboard() {
         )}
       </div>
 
-      {/* Stock Selector */}
-      <div className="stocks-section">
-        <h2>📊 Monitored Stocks ({stocks.length})</h2>
-        <div className="stock-categories">
-          <button onClick={() => setSelectedCategory('all')}>All</button>
-          <button onClick={() => setSelectedCategory('tech')}>Tech</button>
-          <button onClick={() => setSelectedCategory('etfs')}>ETFs</button>
-          <button onClick={() => setSelectedCategory('finance')}>Finance</button>
+      {/* Trading Panel */}
+      <div className="trading-panel">
+        <h2>🎯 Quick Trade</h2>
+        <div className="trade-form">
+          <select 
+            value={selectedStock || ''} 
+            onChange={(e) => setSelectedStock(e.target.value)}
+            className="trade-select"
+          >
+            <option value="">Select Stock...</option>
+            {stocks.map(symbol => (
+              <option key={symbol} value={symbol}>{symbol}</option>
+            ))}
+          </select>
+          
+          <input 
+            type="number" 
+            value={orderQty} 
+            onChange={(e) => setOrderQty(parseInt(e.target.value))}
+            min="1"
+            className="trade-input"
+            placeholder="Quantity"
+          />
+          
+          <select 
+            value={orderSide} 
+            onChange={(e) => setOrderSide(e.target.value)}
+            className="trade-select"
+          >
+            <option value="buy">BUY</option>
+            <option value="sell">SELL</option>
+          </select>
+          
+          <button onClick={placeOrder} className="trade-button">
+            Place Market Order
+          </button>
         </div>
-        <div className="stock-grid">
-          {stocks.map(symbol => (
-            <div key={symbol} className="stock-chip">{symbol}</div>
-          ))}
+      </div>
+
+      {/* Stock Grid with Prices */}
+      <div className="stocks-section">
+        <h2>📊 Live Market Data ({quotes.length} stocks)</h2>
+        <div className="stock-grid-prices">
+          {stocks.map(symbol => {
+            const quote = getQuoteForSymbol(symbol);
+            return (
+              <div 
+                key={symbol} 
+                className={`stock-card ${selectedStock === symbol ? 'selected' : ''}`}
+                onClick={() => setSelectedStock(symbol)}
+              >
+                <div className="stock-symbol">{symbol}</div>
+                {quote ? (
+                  <>
+                    <div className="stock-price">${quote.price?.toFixed(2)}</div>
+                    <div className="stock-spread">
+                      Bid: ${quote.bid?.toFixed(2)} | Ask: ${quote.ask?.toFixed(2)}
+                    </div>
+                  </>
+                ) : (
+                  <div className="stock-price">Loading...</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -166,11 +269,11 @@ export default function TradingDashboard() {
               {orders.slice(0, 10).map((order, idx) => (
                 <tr key={idx}>
                   <td><strong>{order.symbol}</strong></td>
-                  <td className={order.side === 'buy' ? 'buy' : 'sell'}>{order.side.toUpperCase()}</td>
+                  <td className={order.side === 'buy' ? 'buy' : 'sell'}>{order.side?.toUpperCase()}</td>
                   <td>{order.qty}</td>
                   <td className={`status-${order.status}`}>{order.status}</td>
                   <td>${order.filled_avg_price?.toFixed(2) || '-'}</td>
-                  <td>{new Date(order.submitted_at).toLocaleTimeString()}</td>
+                  <td>{order.submitted_at ? new Date(order.submitted_at).toLocaleTimeString() : '-'}</td>
                 </tr>
               ))}
             </tbody>
