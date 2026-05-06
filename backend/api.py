@@ -1,8 +1,8 @@
 ﻿import os
 import time
 import threading
-from datetime import datetime, timedelta
-from fastapi import FastAPI, BackgroundTasks
+from datetime import datetime
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import alpaca_trade_api as tradeapi
@@ -34,252 +34,182 @@ try:
     if ALPACA_API_KEY and ALPACA_SECRET_KEY:
         api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_BASE_URL, api_version='v2')
         print("✅ Alpaca API initialized")
-    else:
-        print("⚠️ Alpaca keys not found")
 except Exception as e:
     print(f"❌ Alpaca init failed: {e}")
 
 # ============================================================================
-# TRADING CONFIGURATION
+# CONFIGURATION
 # ============================================================================
 
 SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "SPY", "QQQ"]
 
-TRADING_CONFIG = {
-    "max_positions": 5,
-    "position_size_pct": 0.10,  # 10% of portfolio per position
-    "min_score": 70,  # Minimum quality score to trade
-    "stop_loss_pct": 0.05,  # 5% stop loss
-    "take_profit_pct": 0.10,  # 10% take profit
-    "check_interval": 60,  # Check every 60 seconds
-}
-
 bot_running = False
 bot_thread = None
-trade_log = []
+bot_logs = []
+trade_history = []
+
+def add_log(message):
+    """Add log entry with timestamp"""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    log_entry = f"[{timestamp}] {message}"
+    bot_logs.append(log_entry)
+    if len(bot_logs) > 100:
+        bot_logs.pop(0)
+    print(log_entry)
 
 # ============================================================================
-# TRADING ALGORITHM
+# TRADING BOT
 # ============================================================================
 
-def calculate_trade_score(symbol, bars):
-    """Calculate multi-factor trade quality score (0-100)"""
+def calculate_score(symbol, bars):
+    """Simple momentum score"""
     try:
-        if len(bars) < 50:
+        if len(bars) < 20:
             return 0
         
-        score = 0
         close = bars['close'].values
-        volume = bars['volume'].values
-        
-        # Factor 1: Trend Strength (30 points)
+        sma_10 = close[-10:].mean()
         sma_20 = close[-20:].mean()
-        sma_50 = close[-50:].mean() if len(close) >= 50 else sma_20
+        current = close[-1]
         
-        if close[-1] > sma_20 > sma_50:
-            score += 30  # Strong uptrend
-        elif close[-1] > sma_20:
-            score += 20  # Moderate uptrend
-        elif close[-1] > sma_50:
-            score += 10  # Weak uptrend
+        score = 0
         
-        # Factor 2: Volume Confirmation (25 points)
-        avg_volume = volume[-20:].mean()
-        recent_volume = volume[-5:].mean()
+        # Uptrend
+        if current > sma_10 > sma_20:
+            score += 50
         
-        if recent_volume > avg_volume * 1.2:
-            score += 25  # High volume
-        elif recent_volume > avg_volume:
-            score += 15  # Above average
+        # Recent momentum
+        recent_change = (current - close[-5]) / close[-5]
+        if recent_change > 0.02:
+            score += 30
+        elif recent_change > 0:
+            score += 15
         
-        # Factor 3: Volatility Check (20 points)
-        returns = np.diff(close[-20:]) / close[-21:-1]
-        volatility = np.std(returns)
-        
-        if 0.01 < volatility < 0.03:
-            score += 20  # Ideal volatility
-        elif volatility < 0.05:
-            score += 10  # Acceptable
-        
-        # Factor 4: Price Action (25 points)
-        last_5_returns = returns[-5:]
-        positive_days = sum(1 for r in last_5_returns if r > 0)
-        
-        if positive_days >= 4:
-            score += 25  # Strong momentum
-        elif positive_days >= 3:
-            score += 15  # Moderate momentum
+        # Volume
+        volume = bars['volume'].values
+        if volume[-1] > volume[-5:].mean():
+            score += 20
         
         return min(score, 100)
-        
-    except Exception as e:
-        print(f"Score calc error for {symbol}: {e}")
+    except:
         return 0
 
-def check_trade_signals():
-    """Check all symbols for trade signals"""
-    if not api:
-        return []
-    
-    signals = []
-    
-    try:
-        account = api.get_account()
-        cash = float(account.cash)
-        portfolio_value = float(account.portfolio_value)
-        
-        # Get current positions
-        positions = api.list_positions()
-        current_symbols = [p.symbol for p in positions]
-        
-        # Don't add new positions if at max
-        if len(positions) >= TRADING_CONFIG['max_positions']:
-            print(f"📊 At max positions ({len(positions)}/{TRADING_CONFIG['max_positions']})")
-            return []
-        
-        for symbol in SYMBOLS:
-            if symbol in current_symbols:
-                continue  # Skip if already have position
-            
-            try:
-                # Get historical data
-                bars = api.get_bars(
-                    symbol, 
-                    '1Day', 
-                    limit=100
-                ).df
-                
-                if bars.empty:
-                    continue
-                
-                # Calculate score
-                score = calculate_trade_score(symbol, bars)
-                
-                if score >= TRADING_CONFIG['min_score']:
-                    # Calculate position size
-                    current_price = float(bars.iloc[-1]['close'])
-                    position_value = portfolio_value * TRADING_CONFIG['position_size_pct']
-                    qty = int(position_value / current_price)
-                    
-                    if qty > 0 and (qty * current_price) <= cash:
-                        signals.append({
-                            'symbol': symbol,
-                            'score': score,
-                            'price': current_price,
-                            'qty': qty,
-                            'action': 'BUY'
-                        })
-                        print(f"🎯 Signal: BUY {qty} {symbol} @ ${current_price:.2f} (Score: {score})")
-                
-            except Exception as e:
-                print(f"Error checking {symbol}: {e}")
-                continue
-        
-        return signals
-        
-    except Exception as e:
-        print(f"Signal check error: {e}")
-        return []
-
-def execute_trade(signal):
-    """Execute a trade based on signal"""
-    if not api:
-        return False
-    
-    try:
-        order = api.submit_order(
-            symbol=signal['symbol'],
-            qty=signal['qty'],
-            side=signal['action'].lower(),
-            type='market',
-            time_in_force='day'
-        )
-        
-        trade_log.append({
-            'timestamp': datetime.now().isoformat(),
-            'symbol': signal['symbol'],
-            'action': signal['action'],
-            'qty': signal['qty'],
-            'price': signal['price'],
-            'score': signal['score'],
-            'order_id': order.id
-        })
-        
-        print(f"✅ EXECUTED: {signal['action']} {signal['qty']} {signal['symbol']} @ ${signal['price']:.2f}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Trade execution failed: {e}")
-        return False
-
-def manage_positions():
-    """Manage existing positions (stop loss, take profit)"""
-    if not api:
-        return
-    
-    try:
-        positions = api.list_positions()
-        
-        for pos in positions:
-            try:
-                symbol = pos.symbol
-                entry_price = float(pos.avg_entry_price)
-                current_price = float(pos.current_price)
-                unrealized_plpc = float(pos.unrealized_plpc)
-                
-                # Check stop loss
-                if unrealized_plpc <= -TRADING_CONFIG['stop_loss_pct']:
-                    print(f"🛑 STOP LOSS: Selling {symbol} (Loss: {unrealized_plpc*100:.2f}%)")
-                    api.close_position(symbol)
-                    continue
-                
-                # Check take profit
-                if unrealized_plpc >= TRADING_CONFIG['take_profit_pct']:
-                    print(f"💰 TAKE PROFIT: Selling {symbol} (Profit: {unrealized_plpc*100:.2f}%)")
-                    api.close_position(symbol)
-                    continue
-                
-            except Exception as e:
-                print(f"Error managing {pos.symbol}: {e}")
-                continue
-                
-    except Exception as e:
-        print(f"Position management error: {e}")
-
-def trading_bot_loop():
-    """Main trading bot loop"""
+def trading_bot():
+    """Main bot loop with detailed logging"""
     global bot_running
     
-    print("🤖 Trading bot started!")
+    add_log("🤖 Trading bot STARTED!")
+    add_log(f"📊 Monitoring {len(SYMBOLS)} stocks: {', '.join(SYMBOLS)}")
+    add_log("⏰ Checking market every 60 seconds...")
+    
+    cycle = 0
     
     while bot_running:
         try:
-            print(f"\n{'='*60}")
-            print(f"🤖 Bot Check: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"{'='*60}")
+            cycle += 1
+            add_log(f"\n{'='*50}")
+            add_log(f"🔄 Cycle #{cycle}")
+            add_log(f"{'='*50}")
             
-            # Manage existing positions
-            manage_positions()
+            # Get account info
+            account = api.get_account()
+            cash = float(account.cash)
+            portfolio_value = float(account.portfolio_value)
             
-            # Check for new signals
-            signals = check_trade_signals()
+            add_log(f"💰 Portfolio: ${portfolio_value:,.2f} | Cash: ${cash:,.2f}")
             
-            # Execute top signals
-            for signal in signals[:3]:  # Max 3 new trades per cycle
-                execute_trade(signal)
-                time.sleep(2)  # Brief pause between orders
+            # Check positions
+            positions = api.list_positions()
+            add_log(f"📊 Current positions: {len(positions)}")
             
-            if not signals:
-                print("📊 No trade signals at this time")
+            if len(positions) >= 3:
+                add_log("⚠️  At max positions (3/3), managing existing only")
+                
+                # Manage positions
+                for pos in positions:
+                    pl_pct = float(pos.unrealized_plpc) * 100
+                    add_log(f"   • {pos.symbol}: {float(pos.qty)} shares @ {pl_pct:+.2f}%")
+                    
+                    if pl_pct <= -5:
+                        add_log(f"🛑 STOP LOSS triggered for {pos.symbol}")
+                        api.close_position(pos.symbol)
+                        trade_history.append({
+                            'time': datetime.now().isoformat(),
+                            'action': 'SELL (Stop Loss)',
+                            'symbol': pos.symbol,
+                            'reason': f'Loss: {pl_pct:.2f}%'
+                        })
+                    elif pl_pct >= 10:
+                        add_log(f"💰 TAKE PROFIT triggered for {pos.symbol}")
+                        api.close_position(pos.symbol)
+                        trade_history.append({
+                            'time': datetime.now().isoformat(),
+                            'action': 'SELL (Take Profit)',
+                            'symbol': pos.symbol,
+                            'reason': f'Profit: {pl_pct:.2f}%'
+                        })
+            else:
+                # Look for new trades
+                add_log(f"🔍 Scanning {len(SYMBOLS)} stocks for signals...")
+                
+                current_symbols = [p.symbol for p in positions]
+                
+                for symbol in SYMBOLS:
+                    if symbol in current_symbols:
+                        continue
+                    
+                    try:
+                        # Get data
+                        bars = api.get_bars(symbol, '1Day', limit=50).df
+                        if bars.empty:
+                            continue
+                        
+                        score = calculate_score(symbol, bars)
+                        price = float(bars.iloc[-1]['close'])
+                        
+                        add_log(f"   {symbol}: Score={score}/100, Price=${price:.2f}")
+                        
+                        if score >= 70:
+                            # Calculate qty
+                            position_value = portfolio_value * 0.15  # 15% per position
+                            qty = int(position_value / price)
+                            
+                            if qty > 0 and (qty * price) <= cash:
+                                add_log(f"🎯 SIGNAL: BUY {qty} {symbol} @ ${price:.2f} (Score: {score})")
+                                
+                                # Place order
+                                order = api.submit_order(
+                                    symbol=symbol,
+                                    qty=qty,
+                                    side='buy',
+                                    type='market',
+                                    time_in_force='day'
+                                )
+                                
+                                add_log(f"✅ ORDER PLACED: {order.id}")
+                                
+                                trade_history.append({
+                                    'time': datetime.now().isoformat(),
+                                    'action': 'BUY',
+                                    'symbol': symbol,
+                                    'qty': qty,
+                                    'price': price,
+                                    'score': score
+                                })
+                                
+                                time.sleep(2)
+                    
+                    except Exception as e:
+                        add_log(f"   ⚠️  Error checking {symbol}: {str(e)[:50]}")
             
-            # Wait before next check
-            time.sleep(TRADING_CONFIG['check_interval'])
+            add_log(f"⏰ Next check in 60 seconds...")
+            time.sleep(60)
             
         except Exception as e:
-            print(f"🤖 Bot loop error: {e}")
+            add_log(f"❌ Bot error: {e}")
             time.sleep(60)
     
-    print("🤖 Trading bot stopped")
+    add_log("🛑 Trading bot STOPPED")
 
 # ============================================================================
 # API ENDPOINTS
@@ -288,26 +218,20 @@ def trading_bot_loop():
 @app.get("/")
 async def root():
     return {
-        "app": "RAYR MONEY Trading System",
+        "app": "RAYR MONEY",
         "version": "2.0",
         "status": "running",
-        "alpaca_connected": api is not None,
         "bot_running": bot_running
     }
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "alpaca_api": "connected" if api else "disconnected"
-    }
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 @app.get("/api/alpaca/status")
 async def alpaca_status():
     if not api:
-        return {"connected": False, "error": "API not initialized"}
-    
+        return {"connected": False}
     try:
         account = api.get_account()
         return {
@@ -316,17 +240,15 @@ async def alpaca_status():
             "cash": float(account.cash),
             "buying_power": float(account.buying_power),
             "equity": float(account.equity),
-            "paper_trading": True,
-            "last_updated": datetime.now().isoformat()
+            "paper_trading": True
         }
-    except Exception as e:
-        return {"connected": False, "error": str(e)}
+    except:
+        return {"connected": False}
 
 @app.get("/api/alpaca/positions")
 async def get_positions():
     if not api:
         return {"positions": []}
-    
     try:
         positions = api.list_positions()
         return {
@@ -340,8 +262,7 @@ async def get_positions():
                     "unrealized_plpc": float(p.unrealized_plpc) * 100
                 }
                 for p in positions
-            ],
-            "total": len(positions)
+            ]
         }
     except:
         return {"positions": []}
@@ -350,7 +271,6 @@ async def get_positions():
 async def get_orders():
     if not api:
         return {"orders": []}
-    
     try:
         orders = api.list_orders(status='all', limit=50)
         return {
@@ -371,20 +291,21 @@ async def get_orders():
 
 @app.get("/api/stocks/list")
 async def get_stocks():
-    return {"symbols": SYMBOLS, "total": len(SYMBOLS)}
+    return {"symbols": SYMBOLS}
 
 @app.get("/api/market/quotes")
 async def get_quotes():
+    """Get market quotes"""
     if not api:
-        return {"quotes": []}
+        return {"quotes": [], "total": 0}
     
-    quotes_data = []
+    quotes = []
     for symbol in SYMBOLS[:5]:
         try:
-            bars = api.get_bars(symbol, "1Day", limit=1).df
+            bars = api.get_bars(symbol, '1Day', limit=1).df
             if not bars.empty:
                 price = float(bars.iloc[-1]['close'])
-                quotes_data.append({
+                quotes.append({
                     "symbol": symbol,
                     "price": price,
                     "bid": price * 0.999,
@@ -393,15 +314,31 @@ async def get_quotes():
         except:
             continue
     
-    return {"quotes": quotes_data, "total": len(quotes_data)}
+    return {"quotes": quotes, "total": len(quotes)}
 
 @app.get("/api/bot/status")
 async def bot_status():
     return {
         "running": bot_running,
         "status": "active" if bot_running else "stopped",
-        "config": TRADING_CONFIG,
-        "trade_count": len(trade_log)
+        "logs": bot_logs[-20:],  # Last 20 log entries
+        "trades": len(trade_history)
+    }
+
+@app.get("/api/bot/logs")
+async def get_logs():
+    """Get full bot activity logs"""
+    return {
+        "logs": bot_logs,
+        "total": len(bot_logs)
+    }
+
+@app.get("/api/bot/trades")
+async def get_trades():
+    """Get bot trade history"""
+    return {
+        "trades": trade_history,
+        "total": len(trade_history)
     }
 
 @app.post("/api/bot/start")
@@ -412,30 +349,24 @@ async def start_bot():
         return {"status": "already_running"}
     
     bot_running = True
-    bot_thread = threading.Thread(target=trading_bot_loop, daemon=True)
+    bot_thread = threading.Thread(target=trading_bot, daemon=True)
     bot_thread.start()
     
     return {
         "status": "started",
-        "message": "🤖 Trading bot activated! Will check every 60 seconds.",
-        "config": TRADING_CONFIG
+        "message": "🤖 Bot activated! Check /api/bot/logs for activity."
     }
 
 @app.post("/api/bot/stop")
 async def stop_bot():
     global bot_running
     bot_running = False
-    return {"status": "stopped", "message": "Trading bot deactivated"}
-
-@app.get("/api/bot/trades")
-async def get_trade_log():
-    return {"trades": trade_log[-50:], "total": len(trade_log)}
+    return {"status": "stopped"}
 
 @app.post("/api/trading/order")
 async def place_order(symbol: str, qty: int, side: str):
     if not api:
         return {"success": False, "error": "API not initialized"}
-    
     try:
         order = api.submit_order(
             symbol=symbol,
@@ -444,11 +375,6 @@ async def place_order(symbol: str, qty: int, side: str):
             type="market",
             time_in_force='day'
         )
-        return {
-            "success": True,
-            "order_id": order.id,
-            "symbol": order.symbol,
-            "status": order.status
-        }
+        return {"success": True, "order_id": order.id}
     except Exception as e:
         return {"success": False, "error": str(e)}
