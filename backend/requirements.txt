@@ -3,3 +3,4 @@ uvicorn[standard]==0.27.1
 python-dotenv==1.0.1
 alpaca-trade-api==3.0.2
 pydantic==2.9.0
+pandas==2.2.0
