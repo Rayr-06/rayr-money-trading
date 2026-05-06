@@ -197,3 +197,69 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+@app.get("/api/market/quotes")
+async def get_market_quotes():
+    """Get current market quotes for all monitored stocks"""
+    if not api:
+        return {"error": "Alpaca API not initialized", "quotes": []}
+    
+    try:
+        quotes_data = []
+        for symbol in SYMBOLS:
+            try:
+                # Get latest trade
+                trade = api.get_latest_trade(symbol)
+                # Get latest quote for bid/ask
+                quote = api.get_latest_quote(symbol)
+                
+                quotes_data.append({
+                    "symbol": symbol,
+                    "price": float(trade.price),
+                    "bid": float(quote.bid_price),
+                    "ask": float(quote.ask_price),
+                    "timestamp": trade.timestamp.isoformat()
+                })
+            except Exception as e:
+                # Skip symbols that fail
+                continue
+        
+        return {
+            "quotes": quotes_data,
+            "total": len(quotes_data),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {"error": str(e), "quotes": []}
+
+@app.post("/api/trading/order")
+async def place_order(
+    symbol: str,
+    qty: int,
+    side: str,
+    order_type: str = "market"
+):
+    """Place a trading order"""
+    if not api:
+        return {"error": "Alpaca API not initialized", "success": False}
+    
+    try:
+        order = api.submit_order(
+            symbol=symbol,
+            qty=qty,
+            side=side,
+            type=order_type,
+            time_in_force='day'
+        )
+        
+        return {
+            "success": True,
+            "order_id": order.id,
+            "symbol": order.symbol,
+            "qty": float(order.qty),
+            "side": order.side,
+            "type": order.type,
+            "status": order.status,
+            "submitted_at": order.submitted_at.isoformat()
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
