@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { 
   TrendingUp, 
   Terminal, 
@@ -734,7 +734,7 @@ export default function App() {
             ]);
             setSystemLogs(l => [
               ...l,
-              `🛑 RISK_ENG: Protective Stop-Loss hit on ${pos.ticker} @ $${pos.sl}. Liquidating...`,
+              `ðŸ›‘ RISK_ENG: Protective Stop-Loss hit on ${pos.ticker} @ $${pos.sl}. Liquidating...`,
               `BROKER_SIM: Executed Sell order for ${pos.qty} units of ${pos.ticker}.`
             ]);
             return null;
@@ -746,7 +746,7 @@ export default function App() {
             ]);
             setSystemLogs(l => [
               ...l,
-              `🎯 RISK_ENG: Take-Profit target achieved on ${pos.ticker} @ $${pos.tp}. Liquidating...`,
+              `ðŸŽ¯ RISK_ENG: Take-Profit target achieved on ${pos.ticker} @ $${pos.tp}. Liquidating...`,
               `BROKER_SIM: Closed position in ${pos.ticker}. registering win features inside self-improvement optimizer.`
             ]);
             return null;
@@ -758,7 +758,7 @@ export default function App() {
             ]);
             setSystemLogs(l => [
               ...l,
-              `💥 CIRCUIT_BREAKER: Volatility spike / Chaotic regime detected on ${pos.ticker}. Liquidation triggered.`,
+              `ðŸ’¥ CIRCUIT_BREAKER: Volatility spike / Chaotic regime detected on ${pos.ticker}. Liquidation triggered.`,
               `BROKER_SIM: Order processed. CLOSED position in ${pos.ticker} @ $${price}`
             ]);
             return null;
@@ -789,19 +789,19 @@ export default function App() {
       setCockpitPositions([]);
       setSystemLogs(prev => [
         ...prev,
-        "⚠️ EMERGENCY HUMAN OVERRIDE INITIATED!",
-        "🛑 CIRCUIT_BREAKER: Manual system halt engaged.",
-        "🛑 RISK_ENG: Global Kill Switch ACTIVE.",
-        "🛑 BROKER_SIM: Liquidating all holding blocks... FILL COMPLETE.",
-        "🛑 SYS_STATUS: System offline. All incoming signals blocked."
+        "âš ï¸ EMERGENCY HUMAN OVERRIDE INITIATED!",
+        "ðŸ›‘ CIRCUIT_BREAKER: Manual system halt engaged.",
+        "ðŸ›‘ RISK_ENG: Global Kill Switch ACTIVE.",
+        "ðŸ›‘ BROKER_SIM: Liquidating all holding blocks... FILL COMPLETE.",
+        "ðŸ›‘ SYS_STATUS: System offline. All incoming signals blocked."
       ]);
     } else {
       setKillSwitchActive(false);
       setSystemLogs(prev => [
         ...prev,
-        "⚡ SYSTEM RECOVERY: Resetting risk locks.",
-        "🟢 RISK_ENG: Re-arming capital and correlation limits.",
-        "🟢 SYS_STATUS: Bot deployed back to Standby."
+        "âš¡ SYSTEM RECOVERY: Resetting risk locks.",
+        "ðŸŸ¢ RISK_ENG: Re-arming capital and correlation limits.",
+        "ðŸŸ¢ SYS_STATUS: Bot deployed back to Standby."
       ]);
     }
   };
@@ -1219,7 +1219,7 @@ export default function App() {
                   {systemLogs.map((log, idx) => (
                     <div key={idx} className={`${
                       log.includes("Order filled") || log.includes("BUY FILLED") || log.includes("Closed") || log.includes("achieved") ? "text-emerald-400 font-semibold" : 
-                      log.includes("Stop-Loss") || log.includes("OVERRIDE") || log.includes("🛑") ? "text-rose-400 font-semibold" : 
+                      log.includes("Stop-Loss") || log.includes("OVERRIDE") || log.includes("ðŸ›‘") ? "text-rose-400 font-semibold" : 
                       log.includes("classified") ? "text-amber-400" : "text-slate-300"
                     }`}>
                       <span className="text-slate-500 select-none mr-1">[{new Date().toLocaleTimeString()}]</span> {log}
@@ -1659,7 +1659,7 @@ kite.set_access_token(user_session["access_token"])`}
                     2. Zero-Cost Broker Workarounds (Webhooks)
                   </h2>
                   <p>
-                    Paying ₹4,000/mo ($50) in API and historical data fees can burn **5% of your $1,000 capital base every month** before your first trade.
+                    Paying â‚¹4,000/mo ($50) in API and historical data fees can burn **5% of your $1,000 capital base every month** before your first trade.
                   </p>
                   <p className="bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg p-3.5">
                     <strong>HEDGE FUND CTO ADVICE:</strong> Avoid unnecessary overhead. Use free third-party alert routers combined with **`execution.py` Webhook Fallback** to execute trades completely free of monthly broker API charges.
@@ -1691,7 +1691,7 @@ kite.set_access_token(user_session["access_token"])`}
                     <ul className="list-disc list-inside flex flex-col gap-2">
                       <li>Whenever a trade closes, the bot logs core indicators (ADX, RSI, ATR percentile) alongside trade outcomes (Win/Loss).</li>
                       <li>Once 10 trades are collected, the Random Forest model automatically trains itself on live market features.</li>
-                      <li>For future candidate trades, the ML classifier predicts the probability of success. If the probability falls below 45%, the entry is rejected—even if the raw strategy signals a buy!</li>
+                      <li>For future candidate trades, the ML classifier predicts the probability of success. If the probability falls below 45%, the entry is rejectedâ€”even if the raw strategy signals a buy!</li>
                     </ul>
                   </div>
                 </div>
@@ -1754,14 +1754,14 @@ User=ubuntu`}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     <div className="bg-[#07090e] p-3.5 rounded border border-[#1b1f2b]">
-                      <h4 className="text-white font-bold mb-1">❌ Ignore Fantasy Win Rates</h4>
+                      <h4 className="text-white font-bold mb-1">âŒ Ignore Fantasy Win Rates</h4>
                       <p className="text-[11px] text-slate-400">
-                        Professional systematic trading systems generate edge using **1:2 Risk-to-Reward ratios** on moderate 45%-55% win rates. Rebacktest any model that promises a 90% win rate—it is usually overfit.
+                        Professional systematic trading systems generate edge using **1:2 Risk-to-Reward ratios** on moderate 45%-55% win rates. Rebacktest any model that promises a 90% win rateâ€”it is usually overfit.
                       </p>
                     </div>
 
                     <div className="bg-[#07090e] p-3.5 rounded border border-[#1b1f2b]">
-                      <h4 className="text-white font-bold mb-1">⚡ execution Friction is Real</h4>
+                      <h4 className="text-white font-bold mb-1">âš¡ execution Friction is Real</h4>
                       <p className="text-[11px] text-slate-400">
                         Slippage and transaction costs can erode up to **20% of your raw profits**. Always model slippage (0.1%) and exchange commission (0.03%) on both entry and exit legs inside your simulation.
                       </p>
@@ -1905,7 +1905,7 @@ User=ubuntu`}
                     type="password"
                     value={alpacaSecretKey}
                     onChange={(e) => setAlpacaSecretKey(e.target.value)}
-                    placeholder="••••••••••••••••••••••••••••••••••••••••"
+                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                     className="w-full bg-[#07090e] border border-[#1b1f2b] rounded-lg px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-[#22c55e]"
                   />
                 </div>
@@ -2063,7 +2063,7 @@ User=ubuntu`}
       {/* FOOTER SECTION */}
       <footer className="border-t border-[#1b1f2b] bg-[#0b0e14] py-6 px-6 text-center font-mono text-[10px] text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
         <div>
-          <span>RAYR MONEY QUANTITATIVE DEPLOYMENT SUITE © 2026. ALL RIGHTS RESERVED.</span>
+          <span>RAYR MONEY QUANTITATIVE DEPLOYMENT SUITE Â© 2026. ALL RIGHTS RESERVED.</span>
         </div>
         <div className="flex gap-4">
           <a href="#cockpit" onClick={() => setActiveTab("cockpit")} className="hover:text-slate-300">BOT STATUS</a>
