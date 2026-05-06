@@ -1,0 +1,7 @@
+﻿RAYR MONEY - Deployment URLs
+=============================
+
+Frontend: https://rayr-money-trading.pages.dev
+Backend:  
+
+Deployed: 2026-05-06 06:38:05
