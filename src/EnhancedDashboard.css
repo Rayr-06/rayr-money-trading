@@ -223,3 +223,49 @@
   color: #888;
   font-style: italic;
 }
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  padding: 40px;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 5px solid #2d2d44;
+  border-top: 5px solid #00d4ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-screen h2 {
+  color: #00d4ff;
+  margin-bottom: 10px;
+}
+
+.loading-screen p {
+  color: #888;
+  margin: 5px 0;
+}
+
+.loading-tip {
+  font-size: 14px;
+  font-style: italic;
+  margin-top: 20px !important;
+}
+
+.stock-price-loading {
+  color: #888;
+  font-size: 14px;
+  animation: pulse 1.5s infinite;
+}

@@ -10,11 +10,42 @@ export default function EnhancedDashboard() {
   const [selectedStock, setSelectedStock] = useState(null);
   const [orderQty, setOrderQty] = useState(1);
   const [orderSide, setOrderSide] = useState('buy');
+  const [loading, setLoading] = useState(true);
+  const [backendStatus, setBackendStatus] = useState('waking');
 
   const BACKEND_URL = 'https://rayr-money-trading.onrender.com';
 
-  // Fetch all data
+  // Wake up backend first
   useEffect(() => {
+    const wakeBackend = async () => {
+      setBackendStatus('waking');
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
+        
+        const res = await fetch(`${BACKEND_URL}/health`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        
+        if (res.ok) {
+          setBackendStatus('ready');
+          setLoading(false);
+        }
+      } catch (err) {
+        console.log('Backend waking up...', err.message);
+        setBackendStatus('waking');
+        // Retry after 5 seconds
+        setTimeout(wakeBackend, 5000);
+      }
+    };
+    wakeBackend();
+  }, []);
+
+  // Fetch Alpaca status
+  useEffect(() => {
+    if (backendStatus !== 'ready') return;
+    
     const fetchStatus = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/alpaca/status`);
@@ -27,9 +58,12 @@ export default function EnhancedDashboard() {
     fetchStatus();
     const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [backendStatus]);
 
+  // Fetch positions
   useEffect(() => {
+    if (backendStatus !== 'ready') return;
+    
     const fetchPositions = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/alpaca/positions`);
@@ -42,9 +76,12 @@ export default function EnhancedDashboard() {
     fetchPositions();
     const interval = setInterval(fetchPositions, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [backendStatus]);
 
+  // Fetch orders
   useEffect(() => {
+    if (backendStatus !== 'ready') return;
+    
     const fetchOrders = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/alpaca/orders`);
@@ -57,9 +94,12 @@ export default function EnhancedDashboard() {
     fetchOrders();
     const interval = setInterval(fetchOrders, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [backendStatus]);
 
+  // Fetch stock list
   useEffect(() => {
+    if (backendStatus !== 'ready') return;
+    
     const fetchStocks = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/stocks/list`);
@@ -70,14 +110,16 @@ export default function EnhancedDashboard() {
       }
     };
     fetchStocks();
-  }, []);
+  }, [backendStatus]);
 
+  // Fetch market quotes
   useEffect(() => {
+    if (backendStatus !== 'ready') return;
+    
     const fetchQuotes = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/market/quotes`);
         const data = await res.json();
-        console.log('Quotes response:', data);
         setQuotes(data.quotes || []);
       } catch (err) {
         console.error('Quotes fetch failed:', err);
@@ -86,9 +128,12 @@ export default function EnhancedDashboard() {
     fetchQuotes();
     const interval = setInterval(fetchQuotes, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [backendStatus]);
 
+  // Fetch bot status
   useEffect(() => {
+    if (backendStatus !== 'ready') return;
+    
     const fetchBotStatus = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/bot/status`);
@@ -101,7 +146,7 @@ export default function EnhancedDashboard() {
     fetchBotStatus();
     const interval = setInterval(fetchBotStatus, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [backendStatus]);
 
   const placeOrder = async () => {
     if (!selectedStock) {
@@ -142,6 +187,17 @@ export default function EnhancedDashboard() {
     return quotes.find(q => q.symbol === symbol);
   };
 
+  if (loading && backendStatus === 'waking') {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner"></div>
+        <h2>🚀 Starting Trading System...</h2>
+        <p>Waking up backend server (this takes 30-60 seconds on first load)</p>
+        <p className="loading-tip">Render free tier spins down after 15min of inactivity</p>
+      </div>
+    );
+  }
+
   return (
     <div className="trading-dashboard">
       {/* Alpaca Status */}
@@ -166,7 +222,7 @@ export default function EnhancedDashboard() {
         )}
       </div>
 
-      {/* Auto-Trading Bot Control */}
+      {/* Auto-Trading Bot */}
       <div className="bot-control-card">
         <h2>🤖 Auto-Trading Bot</h2>
         <div className="bot-status">
@@ -243,7 +299,7 @@ export default function EnhancedDashboard() {
                     </div>
                   </>
                 ) : (
-                  <div className="stock-price">Loading...</div>
+                  <div className="stock-price-loading">⏳ Loading...</div>
                 )}
               </div>
             );
